@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
-    <title>MHD Manažer Ultra v2.0</title>
+    <title>MHD Manažer 2D</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -41,44 +41,32 @@
         #main-nav { display: flex; background-color: #222; height: 45px; }
         #main-nav button {
             background: none; border: none; color: white; flex: 1;
-            cursor: pointer; font-size: 12px; transition: 0.2s;
+            cursor: pointer; font-size: 13px; transition: 0.2s;
         }
         #main-nav button:hover, #main-nav button.active { background-color: var(--accent-color); color: black; font-weight: bold; }
 
         .game-section { display: none; height: calc(100vh - 95px); overflow-y: auto; padding: 15px; }
         .game-section.active { display: block; }
 
-        /* Editor Mapy & Pohyb */
-        #editor-wrapper { position: relative; width: 100%; height: calc(100% - 65px); }
-        #editor-container { width: 100%; height: 100%; background: #2a2a2a; border: 2px solid #444; overflow: hidden; position: relative; }
-        #map-canvas { display: block; }
-        
-        /* Šipky pro pohyb na mobilu */
-        .d-pad { position: absolute; bottom: 10px; right: 10px; display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); gap: 3px; z-index: 10; }
-        .d-btn { background: rgba(0,0,0,0.7); border: 1px solid #666; color: white; border-radius: 4px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; cursor: pointer; }
-        .d-btn:active { background: var(--accent-color); color: black; }
+        /* Canvas Editor */
+        #editor-container { position: relative; width: 100%; height: calc(100% - 60px); background: #2a2a2a; border: 2px solid #444; overflow: hidden; }
+        #map-canvas { display: block; cursor: grab; }
+        #map-canvas:active { cursor: grabbing; }
+        .editor-controls { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; height: 55px; align-items: center;}
 
-        /* Obchod & Lakovna */
-        .brand-tabs { display: flex; gap: 5px; margin-bottom: 12px; border-bottom: 2px solid #444; padding-bottom: 5px; overflow-x: auto; }
-        .brand-tab { background: #333; border: none; color: white; padding: 6px 12px; cursor: pointer; border-radius: 4px; white-space: nowrap; }
+        /* Obchod značky */
+        .brand-tabs { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 2px solid #444; padding-bottom: 5px; }
+        .brand-tab { background: #333; border: none; color: white; padding: 8px 15px; cursor: pointer; border-radius: 4px; }
         .brand-tab.active { background: var(--accent-color); color: black; font-weight: bold; }
-        .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+        .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
         
         .vehicle-card { background-color: var(--panel-color); padding: 12px; border-radius: 8px; position: relative; border: 1px solid #333;}
         .vehicle-card.locked { opacity: 0.35; }
         .locked-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center;
-            color: #ff3d00; font-weight: bold; font-size: 11px; text-align: center;
+            color: #ff3d00; font-weight: bold; font-size: 12px; text-align: center;
         }
-
-        /* Repaint studio */
-        #repaint-grid { display: grid; grid-template-columns: repeat(30, 15px); gap: 1px; background: #444; padding: 5px; width: fit-content; margin: 15px auto; }
-        .paint-pixel { width: 15px; height: 15px; background: #fff; cursor: pointer; border-radius: 1px; }
-        .paint-pixel.window { background: #a5f3fc; cursor: not-allowed; } /* Okna */
-        .paint-pixel.wheel { background: #111; cursor: not-allowed; }  /* Kola */
-        .color-palette { display: flex; gap: 5px; justify-content: center; margin-bottom: 10px; }
-        .color-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; }
 
         /* 2D Simulátor */
         #drive-screen { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: #70c5ce; z-index: 8000; flex-direction: column; justify-content: space-between; }
@@ -88,7 +76,7 @@
         #pedal-brake { background: #e53935; } #pedal-gas { background: #43a047; }
         .hud-drive { color: white; font-size: 14px; }
 
-        .panel { background-color: var(--panel-color); padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+        .panel { background-color: var(--panel-color); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         button.action-btn { background-color: var(--accent-color); border: none; padding: 6px 12px; cursor: pointer; font-weight: bold; border-radius: 4px; color: black; }
         button.action-btn:disabled { background-color: #555; color: #888; cursor: not-allowed; }
         input, select { padding: 8px; background: #333; border: 1px solid #555; color: white; margin: 4px 0; border-radius: 4px; }
@@ -101,15 +89,15 @@
     </div>
 
     <div id="auth-screen">
-        <h2>MHD Manažer Ultra v2.0</h2>
+        <h2>MHD Manažer Ultra</h2>
         <div class="panel" style="width: 90%; max-width: 400px; text-align: center;">
             <input type="email" id="auth-email" placeholder="E-mail (ID Profilu)"><br>
             <input type="password" id="auth-pass" placeholder="Heslo"><br>
-            <label style="display:block; margin-top:10px;">Vyber národnost mapy:</label>
+            <label style="display:block; margin-top:10px;">Vyber národnost mapy/podniku:</label>
             <select id="auth-nationality" style="width:100%;">
                 <option value="CZ">Česká republika (Kč)</option>
                 <option value="SK">Slovensko (€)</option>
-                <option value="DE">Německo (€)</option>
+                <option value="DE">Německo (€, Deustche linky)</option>
                 <option value="PL">Polsko (zł)</option>
             </select><br><br>
             <button class="action-btn" style="width:100%; padding:10px;" onclick="handleAuth()">Spustit / Načíst hru</button>
@@ -119,7 +107,7 @@
     <div id="top-bar">
         <h3 style="margin:0;" id="display-company-name">Dopravní Podnik</h3>
         <div class="stats">
-            <span>Stát: <b id="stat-nat">CZ</b></span>
+            <span>Národnost: <b id="stat-nat">CZ</b></span>
             <span>Peníze: <span id="stat-money">5000</span> <span class="cur-sym">Kč</span></span>
             <span>XP: <span id="stat-xp">0</span></span>
             <span>Lvl: <span id="stat-level">1</span></span>
@@ -129,7 +117,6 @@
     <div id="main-nav">
         <button onclick="switchSection('hra')" id="nav-hra" class="active">Editor Města</button>
         <button onclick="switchSection('vozovna')" id="nav-vozovna">Vozovna & Obchod</button>
-        <button onclick="switchSection('repaint')" id="nav-repaint">Repaint Studio</button>
         <button onclick="switchSection('podnik')" id="nav-podnik">Nastavení</button>
         <button onclick="switchSection('profil')" id="nav-profil">Profil</button>
     </div>
@@ -144,37 +131,27 @@
                 <option value="station">🚉 Nádraží</option>
                 <option value="depot">🏢 Depo MHD</option>
                 <option value="parking">🅿️ Parkování</option>
-                <option value="mall">🏬 OC</option>
-                <option value="clear">❌ Smazat</option>
+                <option value="mall">🏬 Obchodní centrum (OC)</option>
+                <option value="clear">❌ Smazat objekt</option>
             </select>
-            <button class="action-btn" onclick="resetView()">🔎 Vycentrovat</button>
+            <button class="action-btn" onclick="resetView()">🔎 Reset Pohledu</button>
+            <span style="font-size:11px; color:#aaa; margin-left:5px;">Tažením posouváš mapu, kliknutím stavíš.</span>
         </div>
-        
-        <div id="editor-wrapper">
-            <div id="editor-container">
-                <canvas id="map-canvas"></canvas>
-            </div>
-            <div class="d-pad">
-                <div></div><div class="d-btn" onclick="moveCam(0,-1)">▲</div><div></div>
-                <div class="d-btn" onclick="moveCam(-1,0)">◀</div><div></div><div class="d-btn" onclick="moveCam(1,0)">▶</div>
-                <div></div><div class="d-btn" onclick="moveCam(0,1)">▼</div><div></div>
-            </div>
+        <div id="editor-container">
+            <canvas id="map-canvas"></canvas>
         </div>
-
         <div class="panel" style="margin-top:5px; padding:10px;">
             <p id="suburban-locked-msg" style="color: #ff3d00; display: none; margin:0 0 5px 0;">🔒 Příměstské mapy a linky se odemknou na Levelu 4!</p>
-            <label>Vyber vůz k vypuštění:</label>
-            <select id="select-drive-vehicle" style="width:100%; margin-bottom:5px;"></select>
-            <button class="action-btn" style="width: 100%;" onclick="startDrivingSimulation()">Vyslat na trať (2D jízda)</button>
+            <button class="action-btn" style="width: 100%;" onclick="startDrivingSimulation()">Vyslat autobus na linku (2D jízda z boku)</button>
         </div>
     </div>
 
     <div id="sec-vozovna" class="game-section">
         <div class="panel">
-            <h3>Garáž (<span id="owned-count">0</span> vozidel)</h3>
-            <div id="owned-vehicles-list" style="color: var(--accent-color); font-weight: bold; font-size:13px;"></div>
+            <h3>Tvoje vozovna (<span id="owned-count">0</span> vozidel)</h3>
+            <div id="owned-vehicles-list" style="color: var(--accent-color); font-weight: bold;"></div>
         </div>
-        <h3>Prodejna vozidel podle značek</h3>
+        <h3>Nákup nových vozidel</h3>
         <div class="brand-tabs">
             <button class="brand-tab active" onclick="selectBrand('sor', this)">SOR</button>
             <button class="brand-tab" onclick="selectBrand('iveco', this)">Iveco</button>
@@ -185,32 +162,9 @@
         <div class="shop-grid" id="shop-container"></div>
     </div>
 
-    <div id="sec-repaint" class="game-section">
-        <div class="panel">
-            <h3>Tvorba vlastního nátěru (Repaint)</h3>
-            <label>Vyber zakoupený autobus k úpravě:</label><br>
-            <select id="repaint-vehicle-select" onchange="loadRepaintTemplate()" style="width:100%; max-width:400px;"></select><br><br>
-            
-            <div class="color-palette">
-                <div class="color-swatch" style="background:#e53935;" onclick="currentPaintColor='#e53935'"></div>
-                <div class="color-swatch" style="background:#1e88e5;" onclick="currentPaintColor='#1e88e5'"></div>
-                <div class="color-swatch" style="background:#43a047;" onclick="currentPaintColor='#43a047'"></div>
-                <div class="color-swatch" style="background:#ffb300;" onclick="currentPaintColor='#ffb300'"></div>
-                <div class="color-swatch" style="background:#ffffff;" onclick="currentPaintColor='#ffffff'"></div>
-                <div class="color-swatch" style="background:#222222;" onclick="currentPaintColor='#222222'"></div>
-            </div>
-            
-            <div id="repaint-grid"></div>
-            
-            <label>Název repaintu:</label><br>
-            <input type="text" id="repaint-name" placeholder="Např. DPP Retro, Arriva nátěr" style="width:100%; max-width:400px;"><br><br>
-            <button class="action-btn" onclick="saveRepaint()">Uložit nátěr do paměti</button>
-        </div>
-    </div>
-
     <div id="sec-podnik" class="game-section">
         <div class="panel">
-            <h3>Správa společnosti</h3>
+            <h3>Správa podniku</h3>
             <label>Název společnosti:</label><br>
             <input type="text" id="input-company-name" onchange="updateCompany()"><br><br>
             <label>Změnit národnost mapy:</label><br>
@@ -228,12 +182,12 @@
             <h3>Profil</h3>
             <p>E-mail ID: <b id="prof-email">-</b></p>
             <p>Level: <b id="prof-level">1</b> (<span id="prof-xp">0</span> XP)</p>
-            <p id="custom100-msg" style="color: gold; display: none;">✨ Odemčena možnost Custom 100 za 101,716,217 herních peněz!</p>
+            <p id="custom100-msg" style="color: gold; display: none;">✨ Odemčena možnost Custom 100 za 101716217 herních peněz!</p>
         </div>
         <div class="panel">
-            <h3>Záloha do zařízení</h3>
-            <button class="action-btn" onclick="saveToFile()">Uložit celou hru (.json)</button><br><br>
-            <label>Načíst záložní .json soubor:</label><br>
+            <h3>Export / Import dat</h3>
+            <button class="action-btn" onclick="saveToFile()">Uložit do zařízení (.json)</button><br><br>
+            <label>Načíst .json zálohu:</label><br>
             <input type="file" onchange="loadFromFile(event)">
         </div>
     </div>
@@ -258,10 +212,9 @@
     </div>
 
     <script>
-        const MAP_SIZE = 150;
-        const TILE_SIZE = 32;
+        const MAP_SIZE = 150; // Rozlišení mřížky 150x150
+        const TILE_SIZE = 32; // Velikost jednoho pixelu v editoru
 
-        // Kompletní databáze tvých autobusů podle zadání
         const vehiclesDatabase = [
             // SOR
             { id: "sor_c12", brand: "sor", name: "C12", type: "diesel", xp: 20, price: 3500 },
@@ -271,38 +224,38 @@
             { id: "sor_nb12", brand: "sor", name: "NB / ENB / BNG 12", type: "diesel", xp: 900, price: 23000 },
             // Iveco
             { id: "iveco_cross", brand: "iveco", name: "Crossway 12 LE", type: "diesel", xp: 200, price: 6700 },
-            { id: "iveco_urban", brand: "iveco", name: "Urbanway 12 (diesel/CNG/Hybrid)", type: "hybrid", xp: 700, price: 9000 },
+            { id: "iveco_urban", brand: "iveco", name: "Urbanway 12", type: "hybrid", xp: 700, price: 9000 },
             // Irisbus
             { id: "iris_cit", brand: "irisbus", name: "Citelis 12", type: "diesel", xp: 600, price: 5000 },
             { id: "iris_city12", brand: "irisbus", name: "Citybus 12", type: "diesel", xp: 600, price: 9000 },
             { id: "iris_city18", brand: "irisbus", name: "Citybus 18", type: "diesel", xp: 600, price: 18000 },
             // Solaris
-            { id: "sol_urb12_free", brand: "solaris", name: "Solaris Urbino 12 III", type: "diesel", xp: 0, price: 0 },
+            { id: "sol_urb12_free", brand: "solaris", name: "URBINO 12 III", type: "diesel", xp: 0, price: 0 }, // ZDARMA
             { id: "sol_urb12", brand: "solaris", name: "URBINO 12", type: "diesel", xp: 600, price: 9000 },
-            // Škoda (Trolejbusy)
-            { id: "skoda_15tr", brand: "skoda", name: "Škoda 15tr", type: "trolejbus", xp: 100, price: 6110 },
-            { id: "skoda_14tr", brand: "skoda", name: "Škoda 14tr", type: "trolejbus", xp: 200, price: 5629 },
-            { id: "skoda_26tr", brand: "skoda", name: "Škoda 26tr", type: "trolejbus", xp: 700, price: 9000 },
-            { id: "skoda_27tr", brand: "skoda", name: "Škoda 27tr", type: "trolejbus", xp: 800, price: 9000 },
-            { id: "skoda_32tr", brand: "skoda", name: "Škoda 32tr", type: "trolejbus", xp: 1000, price: 2616 },
-            { id: "skoda_30tr", brand: "skoda", name: "Škoda 30tr", type: "trolejbus", xp: 1100, price: 8000 }
+            // Škoda
+            { id: "skoda_15tr", brand: "skoda", name: "14tr", type: "trolejbus", xp: 100, price: 6110 },
+            { id: "skoda_14tr", brand: "skoda", name: "15tr", type: "trolejbus", xp: 200, price: 5629 },
+            { id: "skoda_26tr", brand: "skoda", name: "26tr", type: "trolejbus", xp: 700, price: 9000 },
+            { id: "skoda_27tr", brand: "skoda", name: "27tr", type: "trolejbus", xp: 800, price: 9000 },
+            { id: "skoda_32tr", brand: "skoda", name: "32tr", type: "trolejbus", xp: 1000, price: 2616 },
+            { id: "skoda_30tr", brand: "skoda", name: "30tr", type: "trolejbus", xp: 1100, price: 8000 }
         ];
 
         const natCurrencies = { "CZ": "Kč", "SK": "€", "DE": "€", "PL": "zł" };
 
         let gameState = {
             profileEmail: "", nationality: "CZ", companyName: "Dopravní Podnik", currency: "Kč",
-            money: 5000, xp: 0, level: 1, ownedVehicles: [], repaints: {}, mapData: {}
+            money: 5000, xp: 0, level: 1, ownedVehicles: [],
+            mapData: {} // Ukládáme pouze zastavěné souřadnice "x,y": "typ" pro šetření paměti
         };
 
         let currentTool = "road";
         let currentBrandFilter = "sor";
-        let currentPaintColor = "#e53935";
-        let activeRepaintMap = {}; // Dočasná mřížka barvení
-
+        
+        // Canvas Editor stát
         const eCanvas = document.getElementById("map-canvas");
         const eCtx = eCanvas.getContext("2d");
-        let cameraX = 0, cameraY = 0;
+        let cameraX = 0, cameraY = 0, isDragging = false, startX, startY;
 
         function getLevel(xp) {
             if (xp < 20) return 1; if (xp < 55) return 2; if (xp < 100) return 3;
@@ -313,16 +266,10 @@
         }
 
         window.onload = function() {
-            setupEditorMouseEvents();
+            setupEditorEvents();
             setupPedals();
             window.addEventListener("beforeunload", (e) => {
                 e.preventDefault(); return e.returnValue = 'ULOŽ TO NEBO PŘIJDEŠ O VŠECHNO NEULOŽENÉ';
-            });
-            window.addEventListener("keydown", (e) => {
-                if(document.getElementById("sec-hra").classList.contains("active")) {
-                    if(e.key === "ArrowUp") moveCam(0,-1); if(e.key === "ArrowDown") moveCam(0,1);
-                    if(e.key === "ArrowLeft") moveCam(-1,0); if(e.key === "ArrowRight") moveCam(1,0);
-                }
             });
         };
 
@@ -332,14 +279,14 @@
             if(!email || !pass) { alert("Vyplň údaje!"); return; }
 
             gameState.profileEmail = email;
-            let local = localStorage.getItem("mhd_v2_" + email);
+            let local = localStorage.getItem("mhd_ultra_" + email);
             if(local) {
                 gameState = JSON.parse(local);
             } else {
+                // Nový profil dostane autobus zdarma
                 gameState.nationality = document.getElementById("auth-nationality").value;
                 gameState.currency = natCurrencies[gameState.nationality];
-                // Startovní autobus zdarma!
-                gameState.ownedVehicles.push({ uniqueId: Date.now(), name: "Solaris Urbino 12 III", activeRepaint: "" });
+                gameState.ownedVehicles.push("Solaris URBINO 12 III (diesel)");
             }
             document.getElementById("auth-screen").style.display = "none";
             resizeEditorCanvas();
@@ -347,7 +294,7 @@
             resetView();
         }
 
-        function saveToLocal() { if(gameState.profileEmail) localStorage.setItem("mhd_v2_" + gameState.profileEmail, JSON.stringify(gameState)); }
+        function saveToLocal() { if(gameState.profileEmail) localStorage.setItem("mhd_ultra_" + gameState.profileEmail, JSON.stringify(gameState)); }
 
         function switchSection(id) {
             document.querySelectorAll('.game-section').forEach(s => s.classList.remove('active'));
@@ -355,12 +302,8 @@
             document.getElementById(`sec-${id}`).classList.add('active');
             document.getElementById(`nav-${id}`).classList.add('active');
             if(id === 'hra') { resizeEditorCanvas(); drawMap(); }
-            if(id === 'repaint') { loadRepaintSelector(); }
             updateUI();
         }
-
-        function moveCam(x, y) { cameraX += x * 40; cameraY += y * 40; drawMap(); }
-        function resetView() { cameraX = (MAP_SIZE * TILE_SIZE) / 2 - eCanvas.width / 2; cameraY = (MAP_SIZE * TILE_SIZE) / 2 - eCanvas.height / 2; drawMap(); }
 
         function updateUI() {
             gameState.level = getLevel(gameState.xp);
@@ -379,18 +322,15 @@
             document.getElementById("custom100-msg").style.display = gameState.level >= 11 ? "block" : "none";
 
             document.getElementById("owned-count").innerText = gameState.ownedVehicles.length;
-            document.getElementById("owned-vehicles-list").innerText = gameState.ownedVehicles.map(v => v.name + (v.activeRepaint ? ` [${v.activeRepaint}]` : '')).join(", ");
+            document.getElementById("owned-vehicles-list").innerText = gameState.ownedVehicles.join(", ");
 
-            // Naplnění výběru autobusů pro jízdu
-            let sDrive = document.getElementById("select-drive-vehicle"); sDrive.innerHTML = "";
-            gameState.ownedVehicles.forEach((v, i) => {
-                let opt = document.createElement("option"); opt.value = i; opt.innerText = v.name + (v.activeRepaint ? ` (${v.activeRepaint})` : ''); sDrive.appendChild(opt);
-            });
+            document.getElementById("input-company-name").value = gameState.companyName;
+            document.getElementById("input-nationality").value = gameState.nationality;
 
             renderShop();
         }
 
-        // OBCHOD PODLE ZNAČEK
+        // KATEGORIZOVANÝ OBCHOD
         function selectBrand(brand, btn) {
             currentBrandFilter = brand;
             document.querySelectorAll('.brand-tab').forEach(b => b.classList.remove('active'));
@@ -405,9 +345,9 @@
             filtered.forEach(v => {
                 let card = document.createElement("div"); card.className = "vehicle-card";
                 let locked = gameState.xp < v.xp;
-                card.innerHTML = `<h4>${v.name}</h4><p>Typ: ${v.type.toUpperCase()}</p><p>Cena: ${v.price === 0 ? "ZDARMA" : v.price + " " + gameState.currency}</p><button class="action-btn" onclick="buyVehicle('${v.id}')" ${locked || (gameState.money < v.price && v.price > 0)?'disabled':''}>${v.price===0?'Vyzvednout':'Koupit'}</button>`;
+                card.innerHTML = `<h4>${v.name}</h4><p>Pohon: ${v.type.toUpperCase()}</p><p>Cena: ${v.price === 0 ? "ZDARMA" : v.price + " " + gameState.currency}</p><button class="action-btn" onclick="buyVehicle('${v.id}')" ${locked || (gameState.money < v.price && v.price > 0)?'disabled':''}>${v.price===0?'Vyzvednout':'Koupit'}</button>`;
                 if(locked) {
-                    let ov = document.createElement("div"); ov.className="locked-overlay"; ov.innerText = `🔒 Od Lvl ${getLevel(v.xp)}`; card.appendChild(ov);
+                    let ov = document.createElement("div"); ov.className="locked-overlay"; ov.innerText = `🔒 Od Lvl ${getLevel(v.xp)} (${v.xp} XP)`; card.appendChild(ov);
                 }
                 container.appendChild(card);
             });
@@ -417,7 +357,7 @@
             let v = vehiclesDatabase.find(x => x.id === id);
             if(v && (gameState.money >= v.price || v.price === 0)) {
                 gameState.money -= v.price;
-                gameState.ownedVehicles.push({ uniqueId: Date.now(), name: v.name, activeRepaint: "" });
+                gameState.ownedVehicles.push(`${v.brand.toUpperCase()} ${v.name} (${v.type})`);
                 updateUI(); saveToLocal();
             }
         }
@@ -430,123 +370,128 @@
         }
 
         // ==========================================
-        // CANVAS EDITOR MAPY
+        // CANVAS EDITOR (150x150)
         // ==========================================
-        const tileColors = { road: "#555", stop: "#00bcd4", gas: "#4caf50", shop: "#ffeb3b", station: "#9c27b0", depot: "#ff5722", parking: "#795548", mall: "#e91e63" };
+        const tileColors = {
+            road: "#555555", stop: "#00bcd4", gas: "#4caf50", shop: "#ffeb3b",
+            station: "#9c27b0", depot: "#ff5722", parking: "#795548", mall: "#e91e63"
+        };
 
         function resizeEditorCanvas() {
             const container = document.getElementById("editor-container");
             eCanvas.width = container.clientWidth; eCanvas.height = container.clientHeight;
         }
 
-        function drawMap() {
-            eCtx.clearRect(0,0,eCanvas.width,eCanvas.height); eCtx.save(); eCtx.translate(-cameraX, -cameraY);
-            let sX = Math.max(0, Math.floor(cameraX / TILE_SIZE)), eX = Math.min(MAP_SIZE, Math.ceil((cameraX + eCanvas.width) / TILE_SIZE));
-            let sY = Math.max(0, Math.floor(cameraY / TILE_SIZE)), eY = Math.min(MAP_SIZE, Math.ceil((cameraY + eCanvas.height) / TILE_SIZE));
+        function resetView() { cameraX = (MAP_SIZE * TILE_SIZE) / 2 - eCanvas.width / 2; cameraY = (MAP_SIZE * TILE_SIZE) / 2 - eCanvas.height / 2; drawMap(); }
 
-            eCtx.strokeStyle = "#333"; eCtx.lineWidth = 0.5;
-            for(let x = sX; x < eX; x++) {
-                for(let y = sY; y < eY; y++) {
+        function drawMap() {
+            eCtx.clearRect(0,0,eCanvas.width,eCanvas.height);
+            eCtx.save();
+            eCtx.translate(-cameraX, -cameraY);
+
+            // Vykreslení mřížky v zorném poli kamery
+            let startGridX = Math.floor(cameraX / TILE_SIZE); if(startGridX < 0) startGridX = 0;
+            let endGridX = Math.ceil((cameraX + eCanvas.width) / TILE_SIZE); if(endGridX > MAP_SIZE) endGridX = MAP_SIZE;
+            let startGridY = Math.floor(cameraY / TILE_SIZE); if(startGridY < 0) startGridY = 0;
+            let endGridY = Math.ceil((cameraY + eCanvas.height) / TILE_SIZE); if(endGridY > MAP_SIZE) endGridY = MAP_SIZE;
+
+            // Pozadí mřížky
+            eCtx.strokeStyle = "#333333"; eCtx.lineWidth = 0.5;
+            for(let x = startGridX; x < endGridX; x++) {
+                for(let y = startGridY; y < endGridY; y++) {
                     let type = gameState.mapData[`${x},${y}`];
-                    if(type) { eCtx.fillStyle = tileColors[type]; eCtx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1); }
-                    else { eCtx.strokeRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE); }
+                    if(type) {
+                        eCtx.fillStyle = tileColors[type] || "#444";
+                        eCtx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE - 1, TILE_SIZE - 1);
+                    } else {
+                        eCtx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
                 }
             }
             eCtx.restore();
         }
 
-        function setupEditorMouseEvents() {
-            eCanvas.onclick = (e) => {
+        function setupEditorEvents() {
+            eCanvas.addEventListener("mousedown", (e) => {
+                isDragging = true; startX = e.clientX; startY = e.clientY;
                 let rect = eCanvas.getBoundingClientRect();
-                let x = Math.floor((e.clientX - rect.left + cameraX) / TILE_SIZE);
-                let y = Math.floor((e.clientY - rect.top + cameraY) / TILE_SIZE);
-                if(x>=0 && x<MAP_SIZE && y>=0 && y<MAP_SIZE) {
-                    if(currentTool === 'clear') delete gameState.mapData[`${x},${y}`];
-                    else gameState.mapData[`${x},${y}`] = currentTool;
+                let clickX = Math.floor((e.clientX - rect.left + cameraX) / TILE_SIZE);
+                let clickY = Math.floor((e.clientY - rect.top + cameraY) / TILE_SIZE);
+                
+                // Pokud uživatel neposouvá, ale jen klikne, postaví stavbu
+                eCanvas.onmouseup = (upEvent) => {
+                    if(Math.abs(upEvent.clientX - startX) < 5 && Math.abs(upEvent.clientY - startY) < 5) {
+                        if(clickX >= 0 && clickX < MAP_SIZE && clickY >= 0 && clickY < MAP_SIZE) {
+                            if(currentTool === 'clear') delete gameState.mapData[`${clickX},${clickY}`];
+                            else gameState.mapData[`${clickX},${clickY}`] = currentTool;
+                            saveToLocal(); drawMap();
+                        }
+                    }
+                    isDragging = false; eCanvas.onmouseup = null;
+                };
+            });
+
+            eCanvas.addEventListener("mousemove", (e) => {
+                if(!isDragging) return;
+                cameraX -= (e.clientX - startX); cameraY -= (e.clientY - startY);
+                startX = e.clientX; startY = e.clientY;
+                drawMap();
+            });
+
+            // Mobilní dotyky (Touch)
+            eCanvas.addEventListener("touchstart", (e) => {
+                isDragging = true; startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+            });
+            eCanvas.addEventListener("touchmove", (e) => {
+                if(!isDragging) return;
+                cameraX -= (e.touches[0].clientX - startX); cameraY -= (e.touches[0].clientY - startY);
+                startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+                drawMap();
+            });
+            eCanvas.addEventListener("touchend", () => {
+                let rect = eCanvas.getBoundingClientRect();
+                let clickX = Math.floor((startX - rect.left + cameraX) / TILE_SIZE);
+                let clickY = Math.floor((startY - rect.top + cameraY) / TILE_SIZE);
+                if(clickX >= 0 && clickX < MAP_SIZE && clickY >= 0 && clickY < MAP_SIZE) {
+                    if(currentTool === 'clear') delete gameState.mapData[`${clickX},${clickY}`];
+                    else gameState.mapData[`${clickX},${clickY}`] = currentTool;
                     saveToLocal(); drawMap();
                 }
-            };
-        }
-
-        // ==========================================
-        // LAKOVNA (REPAINT STUDIO)
-        // ==========================================
-        function loadRepaintSelector() {
-            let sel = document.getElementById("repaint-vehicle-select"); sel.innerHTML = "";
-            gameState.ownedVehicles.forEach((v, i) => {
-                let opt = document.createElement("option"); opt.value = i; opt.innerText = v.name; sel.appendChild(opt);
+                isDragging = false;
             });
-            loadRepaintTemplate();
-        }
-
-        function loadRepaintTemplate() {
-            const grid = document.getElementById("repaint-grid"); grid.innerHTML = "";
-            activeRepaintMap = {};
-            
-            // Tvorba 30x8 mřížky reprezentující bok autobusu s předpřipravenými okny a koly
-            for(let y=0; y<8; y++) {
-                for(let x=0; x<30; x++) {
-                    let pixel = document.createElement("div");
-                    pixel.className = "paint-pixel";
-                    
-                    let isWindow = (y === 2 || y === 3) && (x > 2 && x < 28) && (x % 5 !== 0);
-                    let isWheel = (y === 6 || y === 7) && (x === 6 || x === 7 || x === 22 || x === 23);
-
-                    if(isWindow) { pixel.classList.add("window"); }
-                    else if(isWheel) { pixel.classList.add("wheel"); }
-                    else {
-                        pixel.onclick = () => {
-                            pixel.style.background = currentPaintColor;
-                            activeRepaintMap[`${x},${y}`] = currentPaintColor;
-                        };
-                    }
-                    grid.appendChild(pixel);
-                }
-            }
-        }
-
-        function saveRepaint() {
-            let vIdx = document.getElementById("repaint-vehicle-select").value;
-            let name = document.getElementById("repaint-name").value.trim();
-            if(!name || vIdx === "") { alert("Zadej název repaintu!"); return; }
-
-            let vehicle = gameState.ownedVehicles[vIdx];
-            vehicle.activeRepaint = name;
-            gameState.repaints[name] = JSON.parse(JSON.stringify(activeRepaintMap));
-            
-            saveToLocal(); updateUI();
-            alert(`Nátěr "${name}" úspěšně nahozen na vozidlo!`);
         }
 
         // ==========================================
-        // 2D SIMULÁTOR Z BOKU
+        // 2D SIMULÁTOR JÍZDY Z BOKU
         // ==========================================
-        const dCanvas = document.getElementById("game-canvas"); const dCtx = dCanvas.getContext("2d");
+        const dCanvas = document.getElementById("game-canvas");
+        const dCtx = dCanvas.getContext("2d");
         let isGasPressed = false, isBrakePressed = false;
-        let sim = { active: false, busSpeed: 0, fuel: 100, passengers: 0, distance: 0, elements: [], currentRepaint: null };
+        let sim = { active: false, busSpeed: 0, fuel: 100, passengers: 0, distance: 0, elements: [] };
 
         function setupPedals() {
             const gas = document.getElementById("pedal-gas"); const brake = document.getElementById("pedal-brake");
-            gas.onmousedown = () => isGasPressed = true; gas.onmouseup = () => isGasPressed = false;
-            gas.ontouchstart = () => isGasPressed = true; gas.ontouchend = () => isGasPressed = false;
-            brake.onmousedown = () => isBrakePressed = true; brake.onmouseup = () => isBrakePressed = false;
-            brake.ontouchstart = () => isBrakePressed = true; brake.ontouchend = () => isBrakePressed = false;
+            const setGas = (v) => isGasPressed = v; const setBrake = (v) => isBrakePressed = v;
+            gas.onmousedown = () => setGas(true); gas.onmouseup = () => setGas(false);
+            gas.ontouchstart = () => setGas(true); gas.ontouchend = () => setGas(false);
+            brake.onmousedown = () => setBrake(true); brake.onmouseup = () => setBrake(false);
+            brake.ontouchstart = () => setBrake(true); brake.ontouchend = () => setBrake(false);
         }
 
         function startDrivingSimulation() {
-            if(!gameState.ownedVehicles.length) { alert("Nemáš žádné vozidlo!"); return; }
-            if(Object.keys(gameState.mapData).length < 2) { alert("Postav silnice a objekty!"); return; }
-
-            let vIdx = document.getElementById("select-drive-vehicle").value;
-            let activeVehicle = gameState.ownedVehicles[vIdx];
+            let placedItems = Object.values(gameState.mapData);
+            if(placedItems.filter(x => x === 'road').length < 2) { alert("Postav nejdříve nějaké ulice!"); return; }
 
             sim.active = true; sim.busSpeed = 0; sim.fuel = 100; sim.passengers = 0; sim.distance = 0; sim.elements = [];
-            sim.currentRepaint = gameState.repaints[activeVehicle.activeRepaint] || null;
 
-            let idx = 1;
+            // Převedeme postavené budovy z editoru do jízdní dráhy simulace
+            let itemIndex = 1;
             for(let key in gameState.mapData) {
                 let type = gameState.mapData[key];
-                if(type !== 'road') { sim.elements.push({ type: type, x: idx * 500, active: true }); idx++; }
+                if(type !== 'road') {
+                    sim.elements.push({ type: type, x: itemIndex * 450, active: true });
+                    itemIndex++;
+                }
             }
 
             document.getElementById("drive-screen").style.display = "flex";
@@ -556,82 +501,69 @@
 
         function updateDriveSim() {
             if(!sim.active) return;
-            if(sim.busSpeed > 0.1) sim.fuel -= 0.02;
+
+            if(sim.busSpeed > 0.1) sim.fuel -= 0.015;
             if(sim.fuel <= 0) { sim.fuel = 0; isGasPressed = false; }
 
-            if(isGasPressed) { sim.busSpeed += 0.15; if(sim.busSpeed > 13) sim.busSpeed = 13; }
+            if(isGasPressed) { sim.busSpeed += 0.15; if(sim.busSpeed > 14) sim.busSpeed = 14; }
             else if(isBrakePressed) { sim.busSpeed -= 0.4; if(sim.busSpeed < 0) sim.busSpeed = 0; }
             else { sim.busSpeed -= 0.04; if(sim.busSpeed < 0) sim.busSpeed = 0; }
 
             sim.distance += sim.busSpeed;
+
             dCtx.clearRect(0,0,dCanvas.width,dCanvas.height);
-            
             // Silnice
             dCtx.fillStyle = "#444"; dCtx.fillRect(0, dCanvas.height - 35, dCanvas.width, 35);
 
-            let actionBtn = document.getElementById("btn-drive-action"); let actionMsg = document.getElementById("hud-action-msg");
+            let actionBtn = document.getElementById("btn-drive-action");
+            let actionMsg = document.getElementById("hud-action-msg");
             actionBtn.style.display = "none"; actionMsg.innerText = "";
 
             sim.elements.forEach(el => {
-                let relX = el.x - sim.distance + 150;
+                let relX = el.x - sim.distance + 120;
                 if(relX > -100 && relX < dCanvas.width + 100) {
-                    dCtx.fillStyle = tileColors[el.type] || "#fff"; dCtx.fillRect(relX, dCanvas.height - 85, 30, 50);
+                    dCtx.fillStyle = tileColors[el.type] || "#fff";
+                    dCtx.fillRect(relX, dCanvas.height - 85, 30, 50);
                     dCtx.fillStyle = "white"; dCtx.fillText(el.type.toUpperCase(), relX - 5, dCanvas.height - 95);
 
-                    if(Math.abs(relX - 150) < 35 && sim.busSpeed === 0) {
+                    if(Math.abs(relX - 120) < 35 && sim.busSpeed === 0) {
                         if(el.type === 'stop' && el.active) {
-                            actionMsg.innerText = "🚏 Zastávka"; actionBtn.style.display = "block"; actionBtn.innerText = "Otevřít dveře";
-                            actionBtn.onclick = () => { el.active = false; sim.passengers += 6; alert("Cestující nastoupili."); };
+                            actionMsg.innerText = "Zastávka"; actionBtn.style.display = "block"; actionBtn.innerText = "Naložit lidi";
+                            actionBtn.onclick = () => { el.active = false; sim.passengers += 5; alert("Cestující nastoupili."); };
                         } else if(el.type === 'gas') {
-                            actionMsg.innerText = "⛽ Čerpací stanice"; actionBtn.style.display = "block"; actionBtn.innerText = "Natankovat";
-                            actionBtn.onclick = () => { sim.fuel = 100; alert("Palivo doplněno."); };
+                            actionMsg.innerText = "Čerpací stanice"; actionBtn.style.display = "block"; actionBtn.innerText = "Natankovat";
+                            actionBtn.onclick = () => { sim.fuel = 100; alert("Natankováno."); };
+                        } else if(el.type === 'mall' && el.active) {
+                            actionMsg.innerText = "Obchodní centrum"; actionBtn.style.display = "block"; actionBtn.innerText = "Vystoupit lidi";
+                            actionBtn.onclick = () => { el.active = false; sim.passengers = 0; alert("Všichni jdou nakupovat!"); };
                         }
                     }
                 }
             });
 
-            // Vykreslení autobusu s vlastním nátěrem (pokud existuje)
-            let busX = 150, busY = dCanvas.height - 75;
-            if(sim.currentRepaint) {
-                // Vykreslení pixel po pixelu podle repaint studia
-                for(let y=0; y<8; y++) {
-                    for(let x=0; x<30; x++) {
-                        let color = sim.currentRepaint[`${x},${y}`] || "#00e676";
-                        let isWindow = (y === 2 || y === 3) && (x > 2 && x < 28) && (x % 5 !== 0);
-                        let isWheel = (y === 6 || y === 7) && (x === 6 || x === 7 || x === 22 || x === 23);
-                        if(isWindow) color = "#a5f3fc";
-                        if(isWheel) color = "#111";
-
-                        dCtx.fillStyle = color;
-                        dCtx.fillRect(busX + (x*3), busY + (y*4), 3, 4);
-                    }
-                }
-            } else {
-                // Základní zelený autobus bez repaintu
-                dCtx.fillStyle = "#00e676"; dCtx.fillRect(busX, busY, 90, 32);
-                dCtx.fillStyle = "#a5f3fc"; dCtx.fillRect(busX+10, busY+6, 70, 8); // Okna
-                dCtx.fillStyle = "#111"; dCtx.beginPath(); dCtx.arc(busX+20, busY+32, 8, 0, Math.PI*2); dCtx.arc(busX+70, busY+32, 8, 0, Math.PI*2); dCtx.fill();
-            }
+            // Autobus
+            dCtx.fillStyle = "#00e676"; dCtx.fillRect(120, dCanvas.height - 65, 65, 30);
+            dCtx.fillStyle = "black"; dCtx.beginPath(); dCtx.arc(135, dCanvas.height - 35, 8, 0, Math.PI*2); dCtx.arc(170, dCanvas.height - 35, 8, 0, Math.PI*2); dCtx.fill();
 
             document.getElementById("hud-speed").innerText = Math.floor(sim.busSpeed * 4);
             document.getElementById("hud-fuel").innerText = Math.floor(sim.fuel);
             document.getElementById("hud-passengers").innerText = sim.passengers;
 
-            if(sim.distance > (sim.elements.length + 1) * 500) {
+            if(sim.distance > (sim.elements.length + 1) * 450) {
                 sim.active = false;
-                let mRew = (sim.passengers * 50) + 500; let xRew = 45;
+                let mRew = (sim.passengers * 50) + 400; let xRew = 40;
                 gameState.money += mRew; gameState.xp += xRew; saveToLocal(); updateUI();
-                alert(`🏁 Linka dokončena!\nVyděláno: +${mRew} ${gameState.currency}\nZískáno: +${xRew} XP`);
+                alert(`🏁 Konec linky!\nVyděláno: +${mRew} ${gameState.currency}\nZískáno: +${xRew} XP`);
                 document.getElementById("drive-screen").style.display = "none";
                 return;
             }
             requestAnimationFrame(updateDriveSim);
         }
 
-        // UKLÁDÁNÍ / SOUBORY
+        // UKLÁDÁNÍ DO SOUBORU
         function saveToFile() {
             let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(gameState));
-            let dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `mhd_v2_save.json`);
+            let dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `mhd_save_${gameState.profileEmail}.json`);
             document.body.appendChild(dl); dl.click(); dl.remove();
         }
 
@@ -639,9 +571,9 @@
             const r = new FileReader();
             r.onload = function() {
                 try {
-                    gameState = JSON.parse(r.result); updateUI(); saveToLocal(); drawMap(); alert("Hra úspěšně načtena!");
+                    gameState = JSON.parse(r.result); updateUI(); saveToLocal(); drawMap(); alert("Profil úspěšně načten!");
                     document.getElementById("auth-screen").style.display = "none";
-                } catch(e) { alert("Chyba při čtení souboru."); }
+                } catch(e) { alert("Chyba čtení souboru."); }
             };
             r.readAsText(event.target.files[0]);
         }
