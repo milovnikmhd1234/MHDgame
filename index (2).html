@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
+    <title>MHD Manažer Pro 2D</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-color: #1e1e1e;
+            --accent-color: #ff9800;
+            --text-color: #ffffff;
+            --road-color: #555;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* Varování o otočení displeje */
+        #orientation-warning {
+            display: none;
+            position: fixed;
+            top:0; left:0; width:100vw; height:100vh;
+            background: #000; z-index: 9999;
+            flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 20px;
+        }
+
+        @media screen and (orientation: portrait) {
+            #orientation-warning { display: flex; }
+        }
+
+        /* Login Obrazovka */
+        #auth-screen {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: var(--bg-color); z-index: 9000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+
+        /* Horní lišta */
+        #top-bar {
+            background-color: var(--panel-color);
+            padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 3px solid var(--accent-color);
+        }
+        .stats span { margin-right: 15px; font-weight: bold; font-size: 14px; }
+
+        /* Navigace */
+        #main-nav { display: flex; background-color: #222; justify-content: center; }
+        #main-nav button {
+            background: none; border: none; color: white;
+            padding: 12px 20px; cursor: pointer; font-size: 14px; transition: 0.2s;
+        }
+        #main-nav button:hover, #main-nav button.active { background-color: var(--accent-color); color: black; }
+
+        /* Sekce hry */
+        .game-section { display: none; padding: 15px; max-width: 1000px; margin: 0 auto; }
+        .game-section.active { display: block; }
+
+        /* Mřížka města */
+        #map-grid {
+            display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px;
+            background-color: #333; padding: 5px; margin: 15px auto; max-width: 500px;
+        }
+        .cell {
+            aspect-ratio: 1; background-color: #444; cursor: pointer;
+            display: flex; justify-content: center; align-items: center; font-size: 10px;
+        }
+        .cell.road { background-color: var(--road-color); }
+        .cell.stop { background-color: #00bcd4; border-radius: 50%; color: black; font-weight: bold;}
+        .cell.gas { background-color: #4caf50; color: white; font-weight: bold;}
+
+        .editor-controls { text-align: center; margin-bottom: 10px; }
+
+        /* 2D Simulátor z boku */
+        #drive-screen {
+            display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+            background: #70c5ce; z-index: 8000; flex-direction: column; justify-content: space-between;
+        }
+        #game-canvas { background: #70c5ce; width: 100%; height: 60%; display: block; }
+        
+        /* Ovládací pedály */
+        #controls-panel {
+            height: 40%; background: #222; display: flex;
+            justify-content: space-between; align-items: center; padding: 10px 40px;
+        }
+        .pedal {
+            width: 100px; height: 120px; border-radius: 10px;
+            color: white; font-weight: bold; font-size: 20px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 5px #111; cursor: pointer;
+        }
+        #pedal-brake { background: #d32f2f; }
+        #pedal-gas { background: #388e3c; }
+        #pedal-brake:active { transform: translateY(5px); box-shadow: none; }
+        #pedal-gas:active { transform: translateY(5px); box-shadow: none; }
+        
+        .hud-drive { color: white; font-size: 16px; }
+
+        /* Karty s vozidly */
+        .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+        .vehicle-card { background-color: var(--panel-color); padding: 12px; border-radius: 8px; position: relative; }
+        .vehicle-card.locked { opacity: 0.4; }
+        .locked-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center;
+            color: #ff3333; font-weight: bold; text-align: center; padding: 10px;
+        }
+
+        .panel { background-color: var(--panel-color); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        button.action-btn {
+            background-color: var(--accent-color); border: none; padding: 8px 15px;
+            cursor: pointer; font-weight: bold; border-radius: 4px; color: black;
+        }
+        button.action-btn:disabled { background-color: #555; color: #888; cursor: not-allowed; }
+        input { padding: 8px; background: #333; border: 1px solid #555; color: white; margin: 5px 0; width: 100%; max-width: 300px;}
+    </style>
+</head>
+<body>
+
+    <div id="orientation-warning">
+        <h2>🔄 Prosím, otočte své zařízení na šířku (Landscape)</h2>
+        <p>Tato hra vyžaduje zobrazení na šířku pro správné fungování pedálů a 2D simulace jízdy.</p>
+    </div>
+
+    <div id="auth-screen">
+        <h2>MHD Manažer - Vytvořit / Přihlásit Profil</h2>
+        <div class="panel" style="width: 90%; max-width: 350px; text-align: center;">
+            <input type="email" id="auth-email" placeholder="E-mail (Slouží jako ID)"><br>
+            <input type="password" id="auth-pass" placeholder="Heslo"><br><br>
+            <button class="action-btn" onclick="handleAuth()">Vstoupit do hry</button>
+        </div>
+    </div>
+
+    <div id="top-bar">
+        <h3 style="margin:0;" id="display-company-name">Dopravní Podnik</h3>
+        <div class="stats">
+            <span>Peníze: <span id="stat-money">5000</span> <span class="cur-sym">Kč</span></span>
+            <span>XP: <span id="stat-xp">0</span></span>
+            <span>Lvl: <span id="stat-level">1</span></span>
+        </div>
+    </div>
+
+    <div id="main-nav">
+        <button onclick="switchSection('hra')" id="nav-hra" class="active">Město</button>
+        <button onclick="switchSection('vozovna')" id="nav-vozovna">Vozovna</button>
+        <button onclick="switchSection('podnik')" id="nav-podnik">Podnik</button>
+        <button onclick="switchSection('profil')" id="nav-profil">Profil & Data</button>
+    </div>
+
+    <div id="sec-hra" class="game-section active">
+        <div class="editor-controls">
+            <button class="action-btn" onclick="setTool('road')">Ulice</button>
+            <button class="action-btn" onclick="setTool('stop')">Zastávka</button>
+            <button class="action-btn" onclick="setTool('gas')">Čerpací stanice</button>
+            <button class="action-btn" onclick="setTool('clear')">Smazat</button>
+            <p style="margin: 5px 0;">Nástroj: <b id="current-tool" style="color: var(--accent-color)">Ulice</b></p>
+        </div>
+        <div id="map-grid"></div>
+        
+        <div class="panel">
+            <h3>Spustit linku (Řízení z boku)</h3>
+            <p id="suburban-locked-msg" style="color: red; display: none;">🔒 Příměstské linky se odemknou na Levelu 4!</p>
+            <label>Vyber vozidlo pro jízdu:</label>
+            <select id="select-drive-vehicle" style="padding:8px; background:#333; color:white; width:100%; margin: 10px 0;"></select>
+            <button class="action-btn" style="width: 100%;" onclick="startDrivingSimulation()">Vyslat vozidlo na trať (Aktivní řízení)</button>
+        </div>
+    </div>
+
+    <div id="sec-vozovna" class="game-section">
+        <div class="panel">
+            <h3>Tvoje vozidla v garáži (<span id="owned-count">0</span>)</h3>
+            <div id="owned-vehicles-list" style="font-weight: bold; color: var(--accent-color);">Žádná.</div>
+        </div>
+        <h3>Prodejce vozidel</h3>
+        <div class="shop-grid" id="shop-container"></div>
+    </div>
+
+    <div id="sec-podnik" class="game-section">
+        <div class="panel">
+            <h3>Správa společnosti</h3>
+            <label>Název podniku:</label><br>
+            <input type="text" id="input-company-name" onchange="updateCompany()"><br><br>
+            <label>Herní měna:</label><br>
+            <input type="text" id="input-currency-symbol" onchange="updateCompany()">
+        </div>
+    </div>
+
+    <div id="sec-profil" class="game-section">
+        <div class="panel">
+            <h3>Profil řidiče</h3>
+            <p>Přihlášen jako: <b id="prof-email">-</b></p>
+            <p>Úroveň: <b id="prof-level">1</b> (<span id="prof-xp">0</span> XP)</p>
+            <p id="custom100-msg" style="color: gold; display: none;">✨ Odemčena možnost CUSTOM 100!</p>
+        </div>
+        <div class="panel">
+            <h3>Záloha do zařízení</h3>
+            <button class="action-btn" onclick="saveToFile()">Uložit hru (Stáhnout .json)</button><br><br>
+            <label>Načíst hru ze zařízení:</label>
+            <input type="file" onchange="loadFromFile(event)">
+        </div>
+    </div>
+
+    <div id="drive-screen">
+        <canvas id="game-canvas"></canvas>
+        <div id="controls-panel">
+            <div class="hud-drive">
+                <div>Rychlost: <span id="hud-speed">0</span> km/h</div>
+                <div>Palivo: <span id="hud-fuel">100</span>% (<span id="hud-fuel-type">-</span>)</div>
+                <div>Cestující: <span id="hud-passengers">0</span></div>
+            </div>
+            <div class="hud-drive" style="text-align: center;">
+                <div id="hud-action-msg" style="color: yellow; font-weight:bold; margin-bottom:5px;"></div>
+                <button class="action-btn" id="btn-drive-action" onclick="handleDriveAction()" style="display:none;">Zastavit & Otevřít dveře</button>
+            </div>
+            <div style="display: flex; gap: 20px;">
+                <div class="pedal" id="pedal-brake">BRZDA</div>
+                <div class="pedal" id="pedal-gas">PLYN</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Herní databáze vozidel
+        const vehiclesDatabase = [
+            { id: "sor_c12", brand: "SOR", name: "C12", type: "diesel", xp: 20, price: 3500 },
+            { id: "sor_cn12", brand: "SOR", name: "CN12", type: "diesel", xp: 55, price: 8000 },
+            { id: "sor_cng12", brand: "SOR", name: "CNG12", type: "CNG", xp: 160, price: 9000 },
+            { id: "sor_nsg12", brand: "SOR", name: "NSG12 / ENS12", type: "CNG", xp: 700, price: 12700 },
+            { id: "sor_nb12", brand: "SOR", name: "NB / ENB / BNG 12", type: "diesel", xp: 900, price: 23000 },
+            { id: "iveco_cross", brand: "Iveco", name: "Crossway 12 LE", type: "diesel", xp: 200, price: 6700 },
+            { id: "iveco_urban", brand: "Iveco", name: "Urbanway 12", type: "hybrid", xp: 700, price: 9000 },
+            { id: "iris_cit", brand: "Irisbus", name: "Citelis 12", type: "diesel", xp: 600, price: 5000 },
+            { id: "iris_city12", brand: "Irisbus", name: "Citybus 12", type: "diesel", xp: 600, price: 9000 },
+            { id: "iris_city18", brand: "Irisbus", name: "Citybus 18", type: "diesel", xp: 600, price: 18000 },
+            { id: "sol_urb12", brand: "Solaris", name: "URBINO 12", type: "diesel", xp: 600, price: 9000 },
+            { id: "skoda_15tr", brand: "Škoda", name: "15tr", type: "trolejbus", xp: 100, price: 6110 },
+            { id: "skoda_14tr", brand: "Škoda", name: "14tr", type: "trolejbus", xp: 200, price: 5629 },
+            { id: "skoda_26tr", brand: "Škoda", name: "26tr", type: "trolejbus", xp: 700, price: 9000 },
+            { id: "skoda_27tr", brand: "Škoda", name: "27tr", type: "trolejbus", xp: 800, price: 9000 },
+            { id: "skoda_32tr", brand: "Škoda", name: "32tr", type: "trolejbus", xp: 1000, price: 2616 },
+            { id: "skoda_30tr", brand: "Škoda", name: "30tr", type: "trolejbus", xp: 1100, price: 8000 }
+        ];
+
+        let gameState = {
+            profileEmail: "",
+            companyName: "Dopravní Podnik",
+            currency: "Kč",
+            money: 5000,
+            xp: 0,
+            level: 1,
+            ownedVehicles: [],
+            gridData: Array(12*12).fill('empty')
+        };
+
+        let currentTool = 'road';
+        let isGasPressed = false;
+        let isBrakePressed = false;
+
+        // Fyzika a stav simulátoru řízení
+        let sim = {
+            active: false,
+            busX: 100,
+            busSpeed: 0,
+            fuel: 100,
+            passengers: 0,
+            currentVehicle: null,
+            elements: [], // Seznam vygenerovaných objektů na cestě (Zastávky, benzínky)
+            distanceTraveled: 0,
+            totalLength: 2000
+        };
+
+        // Výpočet levelů dle zadání
+        function getLevel(xp) {
+            if (xp < 20) return 1; if (xp < 55) return 2; if (xp < 100) return 3;
+            if (xp < 160) return 4; if (xp < 200) return 5; if (xp < 300) return 6;
+            if (xp < 600) return 7; if (xp < 700) return 8; if (xp < 800) return 9;
+            if (xp < 900) return 10; if (xp < 1000) return 11; if (xp < 1100) return 12;
+            return 13;
+        }
+
+        window.onload = function() {
+            buildGrid();
+            setupPedals();
+            window.addEventListener("beforeunload", (e) => {
+                e.preventDefault();
+                return e.returnValue = 'ULOŽ TO NEBO PŘIJDEŠ O VŠECHNO NEULOŽENÉ';
+            });
+        };
+
+        // Přihlášení / Registrace
+        function handleAuth() {
+            let email = document.getElementById("auth-email").value;
+            let pass = document.getElementById("auth-pass").value;
+            if(!email || !pass) { alert("Zadej e-mail a heslo!"); return; }
+
+            gameState.profileEmail = email;
+            let localData = localStorage.getItem("mhd_profile_" + email);
+            if(localData) {
+                gameState = JSON.parse(localData);
+            }
+            document.getElementById("auth-screen").style.display = "none";
+            updateUI();
+            buildGrid();
+        }
+
+        function saveToLocal() {
+            if(gameState.profileEmail) {
+                localStorage.setItem("mhd_profile_" + gameState.profileEmail, JSON.stringify(gameState));
+            }
+        }
+
+        // Přepínání sekcí
+        function switchSection(id) {
+            document.querySelectorAll('.game-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('#main-nav button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`sec-${id}`).classList.add('active');
+            document.getElementById(`nav-${id}`).classList.add('active');
+            updateUI();
+        }
+
+        function buildGrid() {
+            const grid = document.getElementById("map-grid"); grid.innerHTML = "";
+            for (let i = 0; i < 144; i++) {
+                let cell = document.createElement("div");
+                cell.className = "cell " + gameState.gridData[i];
+                if(gameState.gridData[i] === 'stop') cell.innerText = "🚏";
+                if(gameState.gridData[i] === 'gas') cell.innerText = "⛽";
+                cell.onclick = () => { gameState.gridData[i] = currentTool === 'clear' ? 'empty' : currentTool; buildGrid(); saveToLocal(); };
+                grid.appendChild(cell);
+            }
+        }
+
+        function setTool(tool) { currentTool = tool; document.getElementById("current-tool").innerText = tool === 'road' ? 'Ulice' : tool === 'stop' ? 'Zastávka' : tool === 'gas' ? 'Čerpací stanice' : 'Smazat'; }
+
+        function updateUI() {
+            gameState.level = getLevel(gameState.xp);
+            document.getElementById("stat-money").innerText = Math.floor(gameState.money);
+            document.getElementById("stat-xp").innerText = gameState.xp;
+            document.getElementById("stat-level").innerText = gameState.level;
+            document.getElementById("display-company-name").innerText = gameState.companyName;
+            document.querySelectorAll(".cur-sym").forEach(e => e.innerText = gameState.currency);
+            document.getElementById("prof-email").innerText = gameState.profileEmail;
+            document.getElementById("prof-level").innerText = gameState.level;
+            document.getElementById("prof-xp").innerText = gameState.xp;
+
+            document.getElementById("suburban-locked-msg").style.display = gameState.level >= 4 ? "none" : "block";
+            document.getElementById("custom100-msg").style.display = gameState.level >= 11 ? "block" : "none";
+
+            // Naplnění výběru autobusů pro jízdu
+            let select = document.getElementById("select-drive-vehicle"); select.innerHTML = "";
+            gameState.ownedVehicles.forEach((vName, idx) => {
+                let opt = document.createElement("option"); opt.value = idx; opt.innerText = vName; select.appendChild(opt);
+            });
+
+            document.getElementById("owned-count").innerText = gameState.ownedVehicles.length;
+            document.getElementById("owned-vehicles-list").innerText = gameState.ownedVehicles.length ? gameState.ownedVehicles.join(", ") : "Žádná vozidla.";
+
+            renderShop();
+        }
+
+        function renderShop() {
+            const container = document.getElementById("shop-container"); container.innerHTML = "";
+            vehiclesDatabase.forEach(v => {
+                let card = document.createElement("div"); card.className = "vehicle-card";
+                let locked = gameState.xp < v.xp;
+                card.innerHTML = `<h4>${v.brand} ${v.name}</h4><p>Pohon: ${v.type.toUpperCase()}</p><p>Cena: ${v.price} ${gameState.currency}</p><button class="action-btn" onclick="buyVehicle('${v.id}')" ${locked || gameState.money < v.price ? 'disabled':''}>Koupit</button>`;
+                if(locked) {
+                    let ov = document.createElement("div"); ov.className="locked-overlay"; ov.innerText = `🔒 Od ${v.xp} XP (Lvl ${getLevel(v.xp)})`; card.appendChild(ov);
+                }
+                container.appendChild(card);
+            });
+        }
+
+        function buyVehicle(id) {
+            let v = vehiclesDatabase.find(x => x.id === id);
+            if(v && gameState.money >= v.price) {
+                gameState.money -= v.price; gameState.ownedVehicles.push(`${v.brand} ${v.name} (${v.type})`);
+                updateUI(); saveToLocal();
+            }
+        }
+
+        function updateCompany() {
+            gameState.companyName = document.getElementById("input-company-name").value || "Dopravní Podnik";
+            gameState.currency = document.getElementById("input-currency-symbol").value || "Kč";
+            updateUI(); saveToLocal();
+        }
+
+        // ==========================================
+        // 2D SIMULÁTOR JÍZDY (Z BOKU) LOGIKA
+        // ==========================================
+        const canvas = document.getElementById("game-canvas");
+        const ctx = canvas.getContext("2d");
+
+        function setupPedals() {
+            const gas = document.getElementById("pedal-gas");
+            const brake = document.getElementById("pedal-brake");
+
+            const setGas = (val) => isGasPressed = val;
+            const setBrake = (val) => isBrakePressed = val;
+
+            gas.addEventListener("touchstart", () => setGas(true)); gas.addEventListener("touchend", () => setGas(false));
+            gas.addEventListener("mousedown", () => setGas(true)); gas.addEventListener("mouseup", () => setGas(false));
+            brake.addEventListener("touchstart", () => setBrake(true)); brake.addEventListener("touchend", () => setBrake(false));
+            brake.addEventListener("mousedown", () => setBrake(true)); brake.addEventListener("mouseup", () => setBrake(false));
+        }
+
+        function startDrivingSimulation() {
+            if(!gameState.ownedVehicles.length) { alert("Nemáš žádné vozidlo!"); return; }
+            let roadCount = gameState.gridData.filter(x => x === 'road').length;
+            if(roadCount < 3) { alert("Postav nejdříve ve městě pořádné silnice!"); return; }
+
+            let vIdx = document.getElementById("select-drive-vehicle").value;
+            let vName = gameState.ownedVehicles[vIdx];
+            
+            sim.currentVehicle = vehiclesDatabase.find(x => vName.includes(x.name)) || vehiclesDatabase[0];
+            sim.active = true; sim.busX = 100; sim.busSpeed = 0; sim.fuel = 100; sim.passengers = 0; sim.distanceTraveled = 0;
+            sim.elements = [];
+
+            // Vygenerování zastávek a benzínek na trati podle mapy města
+            let stops = gameState.gridData.filter(x => x === 'stop').length;
+            let gasses = gameState.gridData.filter(x => x === 'gas').length;
+            
+            for(let i=1; i<=stops; i++) { sim.elements.push({ type: 'stop', x: (i * 400) + 200, active: true }); }
+            for(let i=1; i<=gasses; i++) { sim.elements.push({ type: 'gas', x: (i * 600) + 400, active: true }); }
+
+            document.getElementById("drive-screen").style.display = "flex";
+            resizeCanvas();
+            requestAnimationFrame(updateDriveSim);
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight * 0.6;
+        }
+
+        function updateDriveSim() {
+            if(!sim.active) return;
+
+            // Spotřeba paliva podle typu pohonu
+            if (sim.busSpeed > 0.5 && sim.fuel > 0) {
+                let consumption = 0.02;
+                if(sim.currentVehicle.type === 'CNG') consumption = 0.025;
+                if(sim.currentVehicle.type === 'hybrid') consumption = 0.01; // úspornější
+                sim.fuel -= consumption;
+            }
+            // Hybrid dobíjí energii při brzdění
+            if(sim.currentVehicle.type === 'hybrid' && isBrakePressed && sim.busSpeed > 2 && sim.fuel < 100) {
+                sim.fuel += 0.01;
+            }
+
+            if(sim.fuel <= 0) { sim.fuel = 0; isGasPressed = false; }
+
+            // Fyzika pohybu
+            if (isGasPressed && sim.fuel > 0) { sim.busSpeed += 0.2; if(sim.busSpeed > 15) sim.busSpeed = 15; }
+            else if (isBrakePressed) { sim.busSpeed -= 0.5; if(sim.busSpeed < 0) sim.busSpeed = 0; }
+            else { sim.busSpeed -= 0.05; if(sim.busSpeed < 0) sim.busSpeed = 0; }
+
+            sim.distanceTraveled += sim.busSpeed;
+
+            // Vykreslování scény
+            ctx.clearRect(0,0,canvas.width, canvas.height);
+            
+            // Silnice
+            ctx.fillStyle = "#555"; ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+            ctx.fillStyle = "white"; ctx.fillRect(0, canvas.height - 22, canvas.width, 4);
+
+            // Prvky na mapě (Zastávky, Benzínky)
+            let actionBtn = document.getElementById("btn-drive-action");
+            let actionMsg = document.getElementById("hud-action-msg");
+            actionBtn.style.display = "none"; actionMsg.innerText = "";
+
+            sim.elements.forEach(el => {
+                let relativeX = el.x - sim.distanceTraveled + 100;
+                
+                if(el.type === 'stop') {
+                    ctx.fillStyle = "#00bcd4"; ctx.fillRect(relativeX, canvas.height - 90, 15, 50); // Zastávka
+                    ctx.fillStyle = "black"; ctx.fillText("🚏 ZASTÁVKA", relativeX - 20, canvas.height - 100);
+                    
+                    // Kontrola blízkosti autobusu pro nastoupení
+                    if(Math.abs(relativeX - 100) < 40 && sim.busSpeed === 0 && el.active) {
+                        actionMsg.innerText = "Jste na zastávce!"; actionBtn.style.display = "block"; actionBtn.innerText = "Otevřít dveře & Naložit lidi";
+                        actionBtn.onclick = () => { el.active = false; sim.passengers += Math.floor(Math.random() * 8) + 3; alert("Cestující nastoupili!"); };
+                    }
+                } else if(el.type === 'gas') {
+                    ctx.fillStyle = "#4caf50"; ctx.fillRect(relativeX, canvas.height - 100, 30, 60); // Čerpací stanice
+                    ctx.fillStyle = "white"; ctx.fillText("⛽ ČERPACÍ STANICE (" + sim.currentVehicle.type.toUpperCase() + ")", relativeX - 40, canvas.height - 110);
+                    
+                    if(Math.abs(relativeX - 100) < 40 && sim.busSpeed === 0) {
+                        actionMsg.innerText = "Můžete natankovat!"; actionBtn.style.display = "block"; actionBtn.innerText = "Natankovat plnou nádrž";
+                        actionBtn.onclick = () => { sim.fuel = 100; alert("Natankováno do plna!"); };
+                    }
+                }
+            });
+
+            // Vykreslení autobusu (Hráč)
+            ctx.fillStyle = sim.currentVehicle.type === 'trolejbus' ? "#ffeb3b" : "#e91e63";
+            ctx.fillRect(100, canvas.height - 70, 75, 35); // Tělo autobusu
+            ctx.fillStyle = "black"; // Kola
+            ctx.beginPath(); ctx.arc(115, canvas.height - 35, 10, 0, Math.PI*2); ctx.arc(160, canvas.height - 35, 10, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "cyan"; ctx.fillRect(150, canvas.height - 65, 20, 12); // Okno
+
+            // Troleje, pokud je to trolejbus
+            if(sim.currentVehicle.type === 'trolejbus') {
+                ctx.strokeStyle = "black"; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(130, canvas.height - 70); ctx.lineTo(110, canvas.height - 110); ctx.stroke();
+            }
+
+            // HUD aktualizace v simulaci
+            document.getElementById("hud-speed").innerText = Math.floor(sim.busSpeed * 4);
+            document.getElementById("hud-fuel").innerText = Math.floor(sim.fuel);
+            document.getElementById("hud-fuel-type").innerText = sim.currentVehicle.type.toUpperCase();
+            document.getElementById("hud-passengers").innerText = sim.passengers;
+
+            // Konec trati
+            if(sim.distanceTraveled > sim.totalLength) {
+                sim.active = false;
+                let rewardMoney = (sim.passengers * 45) + 300;
+                let rewardXp = (sim.passengers * 3) + 25;
+                gameState.money += rewardMoney;
+                gameState.xp += rewardXp;
+                saveToLocal();
+                alert(`🏁 Dojel jsi na konečnou!\nOdvezeno cestujících: ${sim.passengers}\nVyděláno: +${rewardMoney} ${gameState.currency}\nZískáno: +${rewardXp} XP`);
+                document.getElementById("drive-screen").style.display = "none";
+                updateUI();
+                return;
+            }
+
+            requestAnimationFrame(updateDriveSim);
+        }
+
+        // Ukládání a načítání souborů
+        function saveToFile() {
+            let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(gameState));
+            let dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `mhd_save_${gameState.profileEmail}.json`);
+            document.body.appendChild(dl); dl.click(); dl.remove();
+        }
+
+        function loadFromFile(event) {
+            const r = new FileReader();
+            r.onload = function() {
+                try {
+                    gameState = JSON.parse(r.result); buildGrid(); updateUI(); saveToLocal(); alert("Profil úspěšně načten!");
+                    document.getElementById("auth-screen").style.display = "none";
+                } catch(e) { alert("Chyba čtení souboru."); }
+            };
+            r.readAsText(event.target.files[0]);
+        }
+    </script>
+</body>
+</html>
